@@ -360,15 +360,16 @@ This is slow but does not require any external process."
 
 (defun disk-usage-directory-size-with-du (path)
   "See `disk-usage-directory-size-function'."
-  (string-to-number
-   (cl-first
-    (split-string
-     (with-temp-buffer
-       (with-output-to-string
-         (process-file disk-usage-du-command
-                       nil '(t nil) nil
-                       disk-usage-du-args (file-local-name path)))
-       (buffer-string))))))
+  (or (ignore-errors (string-to-number
+                      (cl-first
+                       (split-string
+                        (with-temp-buffer
+                          (with-output-to-string
+                            (process-file disk-usage-du-command
+                                          nil '(t nil) nil
+                                          disk-usage-du-args (file-local-name path)))
+                          (buffer-string))))))
+      0))
 (defalias 'disk-usage--directory-size-with-du 'disk-usage-directory-size-with-du)
 
 (defun disk-usage--sort-by-size (a b)
