@@ -632,8 +632,13 @@ non-nil or with prefix argument."
                                                     "Delete" "Trash")))
     (cl-loop for entry in tabulated-list-entries
              if (disk-usage--file-info-marked (car entry))
-             do (let ((delete-by-moving-to-trash (not permanently)))
-                  (delete-file (disk-usage--file-info-name (car entry)))))
+             do (let ((delete-by-moving-to-trash (not permanently))
+                      (file (disk-usage--file-info-name (car entry))))
+                  (if (file-directory-p file)
+                      (delete-directory file
+                                        'recursive
+                                        delete-by-moving-to-trash)
+                    (delete-file file delete-by-moving-to-trash))))
     (tabulated-list-revert)))
 
 (defun disk-usage-find-file-at-point ()
