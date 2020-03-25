@@ -407,7 +407,7 @@ Takes a number and returns a string."
 (defun disk-usage--refresh (&optional directory)
   (setq directory (or directory default-directory))
   (let* ((listing (funcall disk-usage-list-function directory))
-         (total-size (disk-usage--total listing)))
+         (total-size (disk-usage--directory-size directory)))
     (disk-usage--set-tabulated-list-format total-size)
     (tabulated-list-init-header)
     (setq tabulated-list-entries
