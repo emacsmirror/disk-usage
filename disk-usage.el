@@ -156,6 +156,8 @@
                (:constructor disk-usage--file-info-make))
   size
   name
+  (device 0)                            ; Used to identify hard links.
+  (inode 0)                             ; Used to identify hard links.
   (children 0)
   (marked nil))
 
@@ -273,6 +275,8 @@ See `disk-usage-add-filters' and `disk-usage-remove-filters'.")
                  if (null (file-attribute-type attributes))
                  collect (disk-usage--file-info-make
                           :name path
+                          :inode (file-attribute-inode-number attributes)
+                          :device (file-attribute-device-number attributes)
                           :size (file-attribute-size attributes))
                  ;; Symlinks
                  else if (stringp (file-attribute-type attributes))
@@ -313,12 +317,15 @@ $ find . -type f -exec du -sb {} +"
                                                                          'nosort)
                              for name = (car file)
                              for attributes = (cdr file)
+                             do (message "FILE %s" file)
                              when (and attributes
-                                       (not (file-attribute-type attributes))
+                                       (not (file-attribute-type attributes)) ; We discard non-files.
                                        (cl-loop for filter in disk-usage-filters
                                                 always (funcall filter name attributes)))
                              collect (disk-usage--file-info-make
                                       :name name
+                                      :inode (file-attribute-inode-number attributes)
+                                      :device (file-attribute-device-number attributes)
                                       :size (file-attribute-size attributes))))))
 
 (defcustom disk-usage-list-function #'disk-usage--list
@@ -338,8 +345,18 @@ It takes the directory to scan as argument."
   (tabulated-list-revert))
 
 (defun disk-usage--total (listing)
-  (cl-loop for file in listing
-           sum (disk-usage--file-info-size file)))
+  "Return the total size of all files in LISTING.
+Hard-links are taken into account."
+  (let ((map (make-hash-table :test #'equal)))
+    (cl-loop with map = (make-hash-table :test #'equal)
+             for file in listing
+             for index = (and (/= 0 (disk-usage--file-info-inode file))
+                              (list (disk-usage--file-info-inode file)
+                                    (disk-usage--file-info-device file)))
+             unless (gethash index map)
+             sum (disk-usage--file-info-size file)
+             when index
+             do (puthash index t map))))
 
 (defun disk-usage--directory-size (path)
   (let ((size (unless current-prefix-arg
@@ -354,8 +371,12 @@ It takes the directory to scan as argument."
 
 (defun disk-usage-directory-size-with-emacs (path)
   "Return the total disk usage of directory PATH as a number.
-This is slow but does not require any external process."
-  (disk-usage--total (disk-usage--list path)))
+This is slow but does not require any external process.
+Hard-links are taken into account."
+  ;; `disk-usage--list' won't do since we need to detect hard-links across
+  ;; subdirectories.  This is unfortunately slower, but since we have the fast
+  ;; `disk-usage-directory-size-with-du' it's not worth optimizing.
+  (disk-usage--total (disk-usage--list-recursively path)))
 (defalias 'disk-usage--directory-size-with-emacs 'disk-usage-directory-size-with-emacs)
 
 (defun disk-usage-directory-size-with-du (path)
