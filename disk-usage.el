@@ -86,7 +86,7 @@
   :type 'string)
 
 (defvaralias 'disk-usage--du-args 'disk-usage-du-args)
-(defcustom disk-usage-du-args "-sb"
+(defcustom disk-usage-du-args "-s -b"
   "Non-GNU users need GNU's `du' for the `-b' flag.  See `disk-usage-du-command'."
   :type 'string)
 
@@ -386,9 +386,10 @@ Hard-links are taken into account."
                        (split-string
                         (with-temp-buffer
                           (with-output-to-string
-                            (process-file disk-usage-du-command
-                                          nil '(t nil) nil
-                                          disk-usage-du-args (file-local-name path)))
+                            (message "%S" (append (split-string disk-usage-du-args) (list (file-local-name path))))
+                            (apply #'process-file disk-usage-du-command
+                                   nil '(t nil) nil
+                                   (append (split-string disk-usage-du-args) (list (file-local-name path)))))
                           (buffer-string))))))
       0))
 (defalias 'disk-usage--directory-size-with-du 'disk-usage-directory-size-with-du)
